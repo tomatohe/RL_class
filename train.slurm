@@ -61,7 +61,7 @@ mkdir -p \
   "${CACHE_ROOT}/documents" \
   "${CACHE_ROOT}/kit-data"
 
-mkdir -p "${PERSISTENT_LOGS_DIR}"
+mkdir -p "${PERSISTENT_LOGS_DIR}/rsl_rl/go2_flat_direct"
 touch "${PERSISTENT_LOGS_DIR}/.keep"
 
 # Prefer node-local tmp for apptainer/singularity scratch

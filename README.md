@@ -107,7 +107,7 @@ Be aware that jobs can be canceled and requeued by the scheduler or underlying p
 Use `rsync` to copy results from the cluster to your local machine. It is faster and can resume interrupted transfers. Run this on your machine (NOT on Greene):
 
 ```
-rsync -avzP -e 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' <netid>@dtn.hpc.nyu.edu:/home/<netid>/rob6323_go2_project/logs ./
+rsync -avzP -e 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' qf2128@dtn.hpc.nyu.edu:/home/qf2128/rob6323_go2_project/logs ./
 ```
 
 *Explanation of flags:*
@@ -165,3 +165,96 @@ The suggested way to inspect these logs is via the Open OnDemand web interface:
 
 ---
 Students should only edit README.md below this ligne.
+
+# Student Modifications - qf2128
+
+
+## Detailed Change Log
+
+### 1. Action Rate Penalties (Smooth Motion Control)
+
+**What Changed:**
+- Added `last_actions` buffer (shape: `[num_envs, 12, 3]`) to track 3-step action history
+- Implemented first derivative penalty: `||a_t - a_{t-1}||²`
+- Implemented second derivative penalty: `||a_t - 2a_{t-1} + a_{t-2}||²`
+- Added `action_rate_reward_scale = -0.01` in configuration
+
+### 2. Custom Low-Level PD Controller
+
+**What Changed:**
+- Disabled implicit PD controller: `stiffness=0.0`, `damping=0.0`
+- Implemented explicit torque calculation: `τ = Kp(q_des - q) - Kd·q̇`
+- Added configurable gains: `Kp=20.0`, `Kd=0.5`, `torque_limits=100.0`
+- Modified `_apply_action()` to use `set_joint_effort_target()` instead of `set_joint_position_target()`
+
+### 3. Early Termination (Base Height Constraint)
+
+**What Changed:**
+- Added `base_height_min = 0.20` (20cm threshold)
+- Modified `_get_dones()` to check: `base_height < 0.20`
+
+### 4. Raibert Heuristic (Intelligent Foot Placement)
+
+**What Changed:**
+- Added gait phase tracking: `gait_indices`, `foot_indices`, `clock_inputs`
+- Implemented trotting gait pattern (frequency=3Hz, phase offset=0.5)
+- Implemented `_step_contact_targets()` for stance/swing phase calculation
+- Implemented `_reward_raibert_heuristic()` for optimal foot position calculation
+- Added 4 clock inputs to observation space (48 → 52 dimensions)
+
+### 5. Stability Reward Shaping
+
+**What Changed:**
+Added 4 new penalty terms:
+
+1. **Orientation Penalty** (`orient_reward_scale = -1.0`)
+   - Penalizes: `||projected_gravity_b[:2]||²`
+   - Keeps robot upright (gravity should only project on Z-axis)
+
+2. **Vertical Velocity Penalty** (`lin_vel_z_reward_scale = -0.002`)
+   - Penalizes: `|v_z|²`
+   - Reduces bouncing/hopping behavior
+
+3. **Joint Velocity Penalty** (`dof_vel_reward_scale = -0.0001`)
+   - Penalizes: `Σ||q̇||²`
+   - Encourages smooth joint motion
+
+4. **Angular Velocity XY Penalty** (`ang_vel_xy_reward_scale = -0.0001`)
+   - Penalizes: `||ω_{xy}||²`
+   - Reduces roll and pitch oscillations
+
+### 6. Advanced Foot Interaction Rewards
+
+**What Changed:**
+
+1. **Foot Clearance Reward** (`feet_clearance_reward_scale = -3.0`)
+   - During swing phase: penalizes feet below 5cm height
+   - During stance phase: no penalty
+   - Uses gait phase from `foot_indices` to determine swing/stance
+
+2. **Contact Force Tracking Reward** (`tracking_contacts_shaped_force_reward_scale = 0.4`)
+   - During stance phase: rewards contact force near 50N
+   - During swing phase: penalizes any contact force
+   - Uses exponential shaping: `exp(-|force_error| / 25.0)`
+
+### Final Reward Composition
+
+Total Reward = 
+  # Tracking objectives
+  + 2.0 * exp(-||v_xy_error||² / 0.25)           # Linear velocity
+  + 0.5 * exp(-|ω_z_error|² / 0.25)              # Yaw rate
+  
+  # Smoothness
+  - 0.01 * (||Δa||² + ||Δ²a||²)                  # Action rate
+  
+  # Gait shaping
+  - 1.0 * ||foot_pos - raibert_target||²         # Raibert heuristic
+  - 3.0 * Σ(clearance_error_during_swing)        # Foot clearance
+  + 0.4 * Σ(exp(-|force_error| / 25))            # Contact forces
+  
+  # Stability
+  - 1.0 * ||g_xy||²                              # Orientation
+  - 0.002 * |v_z|²                               # Vertical velocity
+  - 0.0001 * ||q̇||²                              # Joint velocities
+  - 0.0001 * ||ω_xy||²                           # Angular velocity XY
+
