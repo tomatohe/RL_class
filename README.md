@@ -304,10 +304,31 @@ tensorboard --logdir .
 
 ## Performance Results
 
-### Expected Improvements
-- Smoother walking motion (less jerky actions)
-- Better balance and stability 
-- Proper foot clearance during swing phase
-- Consistent ground contact during stance phase
-- Longer episodes before termination
+### Training Results
+
+The following TensorBoard screenshots show successful training with my modifications:
+
+#### Reward Components Progress
+![Episode Rewards](figure/Screenshot%20from%202025-12-18%2019-07-20.png)
+*All reward components show steady improvement: Raibert heuristic, action rate penalties, foot clearance, contact forces, and tracking rewards.*
+
+#### Training Stability Metrics  
+![Training Stability](figure/Screenshot%20from%202025-12-18%2019-09-20.png)
+*Episode termination decreases and loss functions converge properly, showing stable training.*
+
+#### Performance Metrics
+![Performance Stats](figure/Screenshot%20from%202025-12-18%2019-09-27.png)
+*Consistent collection time (~1.3s), stable learning time, and good FPS performance.*
+
+#### Overall Training Progress
+![Training Summary](figure/Screenshot%20from%202025-12-18%2019-09-35.png)
+*Episode length increases to ~1000 steps, episode rewards reach ~3000, showing successful learning.*
+
+### Key Achievements
+- **Episode Length**: Increased from ~300 to 1000+ steps (robot survives longer)
+- **Total Reward**: Reached ~3000 (strong positive performance)
+- **Stability**: Low termination rate after initial training phase
+- **Foot Clearance**: Reward improved from -6 to -3 (better foot lifting)
+- **Contact Forces**: Positive reward ~40+ (proper ground contact)
+- **Smooth Actions**: Action rate penalties successfully reduced jerkiness
 
