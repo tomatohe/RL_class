@@ -172,7 +172,7 @@ Students should only edit README.md below this ligne.
 ## Detailed Change Log
 
 ### 1. Action Rate Penalties (Smooth Motion Control)
-
+The robot was making jerky movements. Adding smoothness penalties makes the walking more natural and stable.
 **What Changed:**
 - Added `last_actions` buffer (shape: `[num_envs, 12, 3]`) to track 3-step action history
 - Implemented first derivative penalty: `||a_t - a_{t-1}||²`
@@ -180,6 +180,7 @@ Students should only edit README.md below this ligne.
 - Added `action_rate_reward_scale = -0.01` in configuration
 
 ### 2. Custom Low-Level PD Controller
+Isaac Lab's default controller was too basic. A custom controller gives us better torque control for more realistic robot behavior.
 
 **What Changed:**
 - Disabled implicit PD controller: `stiffness=0.0`, `damping=0.0`
@@ -188,12 +189,14 @@ Students should only edit README.md below this ligne.
 - Modified `_apply_action()` to use `set_joint_effort_target()` instead of `set_joint_position_target()`
 
 ### 3. Early Termination (Base Height Constraint)
+Stopping training when the robot falls saves time. The 20cm height limit prevents the robot from learning to crawl instead of walk.
 
 **What Changed:**
 - Added `base_height_min = 0.20` (20cm threshold)
 - Modified `_get_dones()` to check: `base_height < 0.20`
 
 ### 4. Raibert Heuristic (Intelligent Foot Placement)
+This helps the robot place its feet in smart locations. It's based on real quadruped locomotion research and makes the gait more stable.
 
 **What Changed:**
 - Added gait phase tracking: `gait_indices`, `foot_indices`, `clock_inputs`
@@ -203,6 +206,7 @@ Students should only edit README.md below this ligne.
 - Added 4 clock inputs to observation space (48 → 52 dimensions)
 
 ### 5. Stability Reward Shaping
+The original task only cared about forward speed. These penalties keep the robot upright and reduce unwanted bouncing or rolling.
 
 **What Changed:**
 Added 4 new penalty terms:
@@ -224,6 +228,7 @@ Added 4 new penalty terms:
    - Reduces roll and pitch oscillations
 
 ### 6. Advanced Foot Interaction Rewards
+Real dogs lift their feet during swing and press down during stance. These rewards teach the robot proper foot behavior for better walking.
 
 **What Changed:**
 
@@ -238,7 +243,7 @@ Added 4 new penalty terms:
    - Uses exponential shaping: `exp(-|force_error| / 25.0)`
 
 ### Final Reward Composition
-
+```bash
 Total Reward = 
   # Tracking objectives
   + 2.0 * exp(-||v_xy_error||² / 0.25)           # Linear velocity
@@ -257,4 +262,52 @@ Total Reward =
   - 0.002 * |v_z|²                               # Vertical velocity
   - 0.0001 * ||q̇||²                              # Joint velocities
   - 0.0001 * ||ω_xy||²                           # Angular velocity XY
+```
+
+## How to Reproduce Results
+
+# Fork my repository: https://github.com/tomatohe/RL_class
+```bash
+# Then 
+cd $HOME
+git clone git@github.com:YOUR_USERNAME/rob6323_go2_project.git
+```
+### Training the Model
+```bash
+# Make sure you're in the project directory
+cd $HOME/rob6323_go2_project
+
+# Start training (this submits a job to the cluster)
+./train.sh
+
+# Check if your job is running
+ssh burst "squeue -u $USER"
+```
+
+### Viewing Training Progress
+```bash
+# Download logs to your local machine (run this on your computer, not on Greene)
+rsync -avzP -e 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' YOUR_NETID@dtn.hpc.nyu.edu:/home/YOUR_NETID/rob6323_go2_project/logs ./
+
+# Start TensorBoard (on your local machine)
+cd logs
+tensorboard --logdir .
+# Then open http://localhost:6006 in your browser
+```
+
+### Key Metrics to Watch
+- **rew_lin_vel**: Should increase (robot learning to walk forward)
+- **rew_yaw_rate**: Should increase (robot learning to turn)
+- **rew_feet_clearance**: Should become less negative (better foot lifting)
+- **rew_tracking_contacts_shaped_force**: Should increase (better ground contact)
+- **episode_length**: Should increase (robot surviving longer)
+
+## Performance Results
+
+### Expected Improvements
+- Smoother walking motion (less jerky actions)
+- Better balance and stability 
+- Proper foot clearance during swing phase
+- Consistent ground contact during stance phase
+- Longer episodes before termination
 
